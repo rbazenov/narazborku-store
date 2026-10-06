@@ -18,18 +18,15 @@ module.exports = defineConfig({
     redisUrl: process.env.REDIS_URL,
     workerMode: (process.env.MEDUSA_WORKER_MODE as 'shared' | 'server' | 'worker') || 'shared',
     /**
-     * Каждый модуль Medusa держит собственный пул соединений к PostgreSQL.
-     * Со стандартным максимумом (10) 20+ модулей открывают 200–250 соединений —
-     * для небольшого сервера это перебор и ошибка «too many clients».
-     * Ограничиваем пул: важно на серверах с 2–4 ГБ памяти.
+     * Ограничение пула соединений к PostgreSQL.
+     * Каждый модуль Medusa держит собственный пул: со стандартным максимумом (10)
+     * на 30+ модулей получается 500+ соединений — это перебор для небольшого сервера.
      */
     databaseDriverOptions: {
       pool: {
-        // min 0 — соединения открываются по требованию и закрываются после простоя:
-        // на сервере с 2 ГБ памяти это экономит сотни мегабайт
-        min: Number(process.env.DB_POOL_MIN ?? 0),
-        max: Number(process.env.DB_POOL_MAX ?? 3),
-        idleTimeoutMillis: Number(process.env.DB_POOL_IDLE_MS ?? 10000),
+        min: Number(process.env.DB_POOL_MIN ?? 1),
+        max: Number(process.env.DB_POOL_MAX ?? 4),
+        idleTimeoutMillis: 30000,
       },
     },
     http: {
