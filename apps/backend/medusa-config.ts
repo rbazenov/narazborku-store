@@ -29,6 +29,19 @@ module.exports = defineConfig({
         idleTimeoutMillis: 30000,
       },
     },
+    /**
+     * Cookie сессии админки.
+     *
+     * Medusa в продакшене ставит флаг `Secure`, и браузер отбрасывает такую cookie,
+     * если сайт открыт по http:// — вход проходит, но сразу же приходит 401 и панель
+     * показывает ошибку. Пока не выпущен HTTPS, задаём SESSION_COOKIE_SECURE=false;
+     * после подключения сертификата переменную нужно убрать (или поставить true).
+     */
+    cookieOptions: {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.SESSION_COOKIE_SECURE !== 'false',
+    },
     http: {
       storeCors: process.env.STORE_CORS!,
       adminCors: process.env.ADMIN_CORS!,

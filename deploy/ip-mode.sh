@@ -4,11 +4,14 @@
 set -u
 S=/srv/narazborku/app/apps/backend/.medusa/server
 ENV=/srv/narazborku/app/apps/backend/.env
-JS=$(ls $S/public/admin/assets/index-*.js | head -1)
+JS=$(ls $S/public/admin/assets/index-*.js | grep -v orig | head -1)
+BAK=/root/admin-bundle.orig.js   # резервная копия вне публичной папки
 MODE=${1:-on}
 
 if [ "$MODE" = "on" ]; then
-  [ -f "$JS.orig" ] || cp "$JS" "$JS.orig"
+  [ -f "$BAK" ] || cp "$JS" "$BAK"
+  sed -i 's#^SESSION_COOKIE_SECURE=.*#SESSION_COOKIE_SECURE=false#' "$ENV"
+  grep -q '^SESSION_COOKIE_SECURE=' "$ENV" || echo 'SESSION_COOKIE_SECURE=false' >> "$ENV"
   sed -i 's#https://shop\.narazborku\.ru#http://77.233.221.183#g' "$JS"
   sed -i 's#^MEDUSA_BACKEND_URL=.*#MEDUSA_BACKEND_URL=http://77.233.221.183#' "$ENV"
   sed -i 's#^ADMIN_CORS=.*#ADMIN_CORS=http://77.233.221.183,https://shop.narazborku.ru#' "$ENV"
@@ -16,7 +19,10 @@ if [ "$MODE" = "on" ]; then
   sed -i 's#^STORE_CORS=\(.*\)#STORE_CORS=http://77.233.221.183,\1#' "$ENV"
   echo "включён режим IP: админка http://77.233.221.183/app"
 else
-  [ -f "$JS.orig" ] && cp "$JS.orig" "$JS" || echo "оригинал бандла не найден — потребуется пересборка (npm run build)"
+  # по HTTPS cookie обязана быть Secure
+  sed -i 's#^SESSION_COOKIE_SECURE=.*#SESSION_COOKIE_SECURE=true#' "$ENV"
+  grep -q '^SESSION_COOKIE_SECURE=' "$ENV" || echo 'SESSION_COOKIE_SECURE=true' >> "$ENV"
+  [ -f "$BAK" ] && cp "$BAK" "$JS" || echo "оригинал бандла не найден — потребуется пересборка (npm run build)"
   sed -i 's#^MEDUSA_BACKEND_URL=.*#MEDUSA_BACKEND_URL=https://shop.narazborku.ru#' "$ENV"
   sed -i 's#^ADMIN_CORS=.*#ADMIN_CORS=https://shop.narazborku.ru#' "$ENV"
   sed -i 's#^AUTH_CORS=.*#AUTH_CORS=https://shop.narazborku.ru,https://narazborku.ru,https://www.narazborku.ru#' "$ENV"
