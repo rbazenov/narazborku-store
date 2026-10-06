@@ -118,6 +118,14 @@ export default async function seedNarazborkuAutoparts({ container }: ExecArgs) {
   const productModule = container.resolve(Modules.PRODUCT)
   const existing = await productModule.listProducts({ handle: ITEMS.map((i) => i.handle) }, { select: ['handle'] })
   const existingHandles = new Set(existing.map((p) => p.handle))
+  // профиль доставки обязателен: без него заказ не оформить
+  const { data: profiles } = await query.graph({
+    entity: "shipping_profile",
+    fields: ["id"],
+    pagination: { take: 1 },
+  })
+  const shippingProfileId = profiles?.[0]?.id
+
   const toCreate = ITEMS.filter((i) => !existingHandles.has(i.handle))
 
   if (toCreate.length) {
@@ -129,6 +137,7 @@ export default async function seedNarazborkuAutoparts({ container }: ExecArgs) {
           description: item.description,
           status: ProductStatus.PUBLISHED,
           category_ids: [categoryIdByHandle[item.category]],
+          shipping_profile_id: shippingProfileId,
           sales_channels: [{ id: defaultChannel.id }],
           // характеристики выводятся в карточке товара в админке
           metadata: { артикул: item.sku, состояние: item.condition, бренд: item.brand },
@@ -138,7 +147,7 @@ export default async function seedNarazborkuAutoparts({ container }: ExecArgs) {
               title: item.sku,
               sku: item.sku,
               options: { Артикул: item.sku },
-              prices: [{ amount: item.price, currency_code: 'rub' }],
+              prices: [{ amount: item.price * 100, currency_code: 'rub' }],
             },
           ],
         })),
