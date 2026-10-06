@@ -327,13 +327,17 @@ const MessagesPage = () => {
                   rows={3}
                   onChange={(e) => setReply(e.target.value)}
                 />
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <Button size="small" onClick={send} disabled={busy || !reply.trim()}>
+                {/* подпись слева одной строкой, кнопка — справа (на узком экране кнопка переносится, но остаётся справа) */}
+                <div style={{ display: "flex", gap: 12, rowGap: 8, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
+                  <span
+                    className="text-ui-fg-subtle"
+                    style={{ flex: "1 1 auto", minWidth: 0, fontSize: 12, lineHeight: 1.2, whiteSpace: "nowrap" }}
+                  >
+                    Ответ появится в личном кабинете покупателя в разделе «Сообщения».
+                  </span>
+                  <Button size="small" style={{ flex: "none", marginLeft: "auto" }} onClick={send} disabled={busy || !reply.trim()}>
                     Отправить ответ
                   </Button>
-                  <Text size="xsmall" className="text-ui-fg-subtle">
-                    Ответ появится в личном кабинете покупателя в разделе «Сообщения».
-                  </Text>
                 </div>
               </div>
             </>
