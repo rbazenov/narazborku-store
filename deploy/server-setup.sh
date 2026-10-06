@@ -156,6 +156,14 @@ sudo -u "$APP_USER" bash -lc "cd $BACKEND && npm cache clean --force >/dev/null 
 sudo -u "$APP_USER" bash -lc "rm -rf $BACKEND/node_modules/.cache $APP_DIR/app/node_modules/.cache"
 df -h / | tail -1 | awk '{print "    свободно на диске: "$4" из "$2}'
 
+say "8.5/10  Схема базы: миграции"
+# ВАЖНО: medusa db:migrate по умолчанию запускает миграции всех модулей ПАРАЛЛЕЛЬНО.
+# На сервере с 1–2 ядрами это открывает 500+ соединений к Postgres, всё упирается
+# в лимит и развёртывание падает с «too many clients». Ограничиваем параллельность.
+sudo -u "$APP_USER" bash -lc "cd $BACKEND/.medusa/server && ./node_modules/.bin/medusa db:migrate --concurrency 2" \
+  || { echo "    ⚠ миграции не прошли. Если ошибка «too many clients» — выполните вручную:"; \
+       echo "       cd $BACKEND/.medusa/server && ./node_modules/.bin/medusa db:migrate --concurrency 1"; }
+
 say "9/10  Автозапуск (systemd), nginx, HTTPS"
 cat > /etc/systemd/system/narazborku.service <<EOF
 [Unit]
@@ -221,7 +229,8 @@ sudo -u "$APP_USER" bash -lc "cd $BACKEND && npx medusa user -e '$ADMIN_EMAIL' -
 
 if [ "$SEED_DEMO" = "1" ]; then
   say "Демо-каталог запчастей"
-  sudo -u "$APP_USER" bash -lc "cd $BACKEND && npx medusa exec ./src/scripts/seed-narazborku-autoparts.ts"
+  sudo -u "$APP_USER" bash -lc "cd $BACKEND && npx medusa exec ./src/scripts/seed-narazborku-autoparts.ts" || \
+    echo "    ⚠ демо-каталог не залился — можно повторить позже: npm run seed:autoparts"
 fi
 
 say "Ежедневный дамп базы (хранится 7 дней)"
