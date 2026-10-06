@@ -119,7 +119,7 @@ export default async function seedNarazborkuAutoparts({ container }: ExecArgs) {
   const existing = await productModule.listProducts({ handle: ITEMS.map((i) => i.handle) }, { select: ['handle'] })
   const existingHandles = new Set(existing.map((p) => p.handle))
   // профиль доставки обязателен: без него заказ не оформить
-  const { data: profiles } = await query.graph({
+  const { data: profiles } = await container.resolve(ContainerRegistrationKeys.QUERY).graph({
     entity: "shipping_profile",
     fields: ["id"],
     pagination: { take: 1 },
