@@ -48,10 +48,35 @@ apt-get install -y -qq curl git ca-certificates gnupg ufw \
   postgresql postgresql-contrib redis-server nginx \
   certbot python3-certbot-nginx openssl
 
-say "2/10  Swap 2 ГБ (страховка при сборке)"
+say "2/10  Swap (страховка при сборке)"
+TOTAL_RAM_MB="$(awk '/MemTotal/{print int($2/1024)}' /proc/meminfo)"
+# Сборка Medusa требует ~2.5–3 ГБ. На серверах с 2–4 ГБ памяти без swap сборку
+# убивает OOM — поэтому на малых конфигурациях делаем swap побольше.
+if [ "$TOTAL_RAM_MB" -lt 4096 ]; then SWAP_SIZE=4G; else SWAP_SIZE=2G; fi
+echo "    памяти: ${TOTAL_RAM_MB} МБ → swap ${SWAP_SIZE}"
 if ! swapon --show | grep -q swap; then
-  fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile
+  fallocate -l "$SWAP_SIZE" /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile
   grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  # активнее выгружать в swap, чтобы не ловить OOM на пиках
+  sysctl -q vm.swappiness=20
+  grep -q 'vm.swappiness' /etc/sysctl.conf || echo 'vm.swappiness=20' >> /etc/sysctl.conf
+fi
+
+# Настройка PostgreSQL и Redis под объём памяти сервера
+if [ "$TOTAL_RAM_MB" -lt 4096 ]; then
+  say "    тюнинг PostgreSQL/Redis под малую память"
+  systemctl start postgresql redis-server >/dev/null 2>&1 || true
+  sleep 2
+  sudo -u postgres psql -q -c "ALTER SYSTEM SET shared_buffers = '256MB';" \
+    -c "ALTER SYSTEM SET effective_cache_size = '768MB';" \
+    -c "ALTER SYSTEM SET work_mem = '8MB';" \
+    -c "ALTER SYSTEM SET maintenance_work_mem = '64MB';" \
+    -c "ALTER SYSTEM SET max_connections = 60;" >/dev/null
+  systemctl restart postgresql
+  sed -i -E "s/^# *maxmemory .*/maxmemory 256mb/; s/^# *maxmemory-policy .*/maxmemory-policy noeviction/" /etc/redis/redis.conf
+  grep -q '^maxmemory ' /etc/redis/redis.conf || echo 'maxmemory 256mb' >> /etc/redis/redis.conf
+  grep -q '^maxmemory-policy ' /etc/redis/redis.conf || echo 'maxmemory-policy noeviction' >> /etc/redis/redis.conf
+  systemctl restart redis-server
 fi
 
 say "3/10  Node.js 22"
@@ -103,9 +128,15 @@ else
   echo "    .env уже есть — не трогаю"
 fi
 
-say "8/10  Сборка магазина (5–10 минут)"
-sudo -u "$APP_USER" bash -lc "cd $BACKEND && NODE_OPTIONS=--max-old-space-size=3072 npm run build"
+say "8/10  Сборка магазина (на слабом сервере 15–30 минут)"
+HEAP_MB=$(( TOTAL_RAM_MB > 4096 ? 3072 : 1400 ))
+echo "    памяти ${TOTAL_RAM_MB} МБ → heap сборки ${HEAP_MB} МБ (при нехватке подключится swap)"
+sudo -u "$APP_USER" bash -lc "cd $BACKEND && NODE_OPTIONS=--max-old-space-size=$HEAP_MB npm run build"
 sudo -u "$APP_USER" bash -lc "cd $BACKEND/.medusa/server && npm install --no-audit --no-fund --omit=dev"
+# освобождаем место на диске (на 30 ГБ это существенно)
+sudo -u "$APP_USER" bash -lc "cd $BACKEND && npm cache clean --force >/dev/null 2>&1 || true"
+sudo -u "$APP_USER" bash -lc "rm -rf $BACKEND/node_modules/.cache $APP_DIR/app/node_modules/.cache"
+df -h / | tail -1 | awk '{print "    свободно на диске: "$4" из "$2}'
 
 say "9/10  Автозапуск (systemd), nginx, HTTPS"
 cat > /etc/systemd/system/narazborku.service <<EOF
