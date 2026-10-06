@@ -111,20 +111,33 @@ const SkladPage = () => {
     setNote("")
     let done = 0
     const failed: string[] = []
+    let reason = ""
     for (const id of ids) {
       try {
         const res = await fetch("/admin/inventory-items/" + id, { method: "DELETE", credentials: "include" })
-        if (!res.ok) throw new Error("код " + res.status)
+        if (!res.ok) {
+          const body = await res.text().catch(() => "")
+          if (!reason && /reservation/i.test(body)) {
+            reason = "по этим позициям есть резервы незавершённых заказов — сначала завершите или отмените заказы"
+          }
+          throw new Error("код " + res.status)
+        }
         done++
       } catch (e) {
         failed.push(id)
       }
+      if (ids.length > 1) setNote("Удаляем: " + (done + failed.length) + " из " + ids.length)
     }
     setBusy(false)
     setAsk(null)
-    setNote(
-      "Удалено позиций: " + done + (failed.length ? ", не удалось: " + failed.length : "")
-    )
+    if (failed.length) {
+      setNote(
+        "Удалено позиций: " + done + ". Не удалось удалить: " + failed.length +
+        (reason ? " (" + reason + ")" : "")
+      )
+    } else {
+      setNote("Удалено позиций: " + done + ".")
+    }
     await load()
   }
 
