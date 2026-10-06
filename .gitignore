@@ -1,0 +1,15 @@
+# зависимости и артефакты сборки
+node_modules/
+.medusa/
+dist/
+build/
+.turbo/
+*.log
+
+# секреты — в репозиторий не попадают
+.env
+.env.*
+!.env.template
+
+# системное
+.DS_Store
