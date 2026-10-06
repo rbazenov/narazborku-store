@@ -92,6 +92,21 @@ else:
 PY
 
 echo
+echo "=== 1c. страница «Склад» (выбор всех, удаление с подтверждением, без постраничного листания) ==="
+SKLAD_DIR=$APP/src/admin/routes/sklad
+SKLAD=$SKLAD_DIR/page.tsx
+if [ -f "$SKLAD" ]; then
+  echo "  страница на месте: $SKLAD"
+elif [ -f /root/sklad-page.tsx ]; then
+  mkdir -p "$SKLAD_DIR"
+  cp /root/sklad-page.tsx "$SKLAD"
+  chown -R medusa:medusa "$SKLAD_DIR"
+  echo "  страница восстановлена из шаблона /root/sklad-page.tsx"
+else
+  echo "  ! страницы нет и шаблона /root/sklad-page.tsx тоже нет — раздел «Склад» не появится"
+fi
+
+echo
 echo "=== 2. пересборка стенда (серверный код + админка) ==="
 STATIC_KEEP=$STAGE/.static-keep
 rm -rf "$STATIC_KEEP"
