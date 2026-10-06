@@ -56,6 +56,42 @@ else:
 PY
 
 echo
+echo "=== 1b. авто-прокрутка переписки (последнее сообщение всегда на виду) ==="
+sudo -u medusa python3 - "$PAGE" <<'PY'
+import io, sys
+p = sys.argv[1]
+s = io.open(p, encoding="utf-8").read()
+
+IMP_OLD = 'import { useCallback, useEffect, useMemo, useRef, useState } from "react"'
+IMP_NEW = 'import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"'
+REF_OLD = '  const timer = useRef<any>(null)'
+REF_NEW = '  const timer = useRef<any>(null)\n  const chatBox = useRef<HTMLDivElement | null>(null)'
+ACT_OLD = '  const active = useMemo(() => convs.find((c) => c.id === activeId) || null, [convs, activeId])'
+ACT_NEW = ACT_OLD + """
+
+  /* Последнее сообщение всегда на виду: при открытии диалога и после отправки ответа
+     окно переписки само прокручивается вниз — искать новое сообщение вручную не нужно. */
+  useLayoutEffect(() => {
+    const box = chatBox.current
+    if (!box) return
+    box.scrollTop = box.scrollHeight
+  }, [activeId, active?.messages.length])"""
+BOX_OLD = '<div style={{ flex: 1, overflowY: "auto", padding: 18, display: "flex", flexDirection: "column", gap: 10, maxHeight: 480 }}>'
+BOX_NEW = '<div ref={chatBox} style={{ flex: 1, overflowY: "auto", padding: 18, display: "flex", flexDirection: "column", gap: 10, maxHeight: 480 }}>'
+
+if "chatBox" in s and "useLayoutEffect" in s:
+    print("  уже применено — файл не изменён")
+else:
+    for old, new in ((IMP_OLD, IMP_NEW), (REF_OLD, REF_NEW), (ACT_OLD, ACT_NEW), (BOX_OLD, BOX_NEW)):
+        if s.count(old) != 1:
+            print("  ! ожидаемый фрагмент не найден: " + old[:60])
+            raise SystemExit(2)
+        s = s.replace(old, new, 1)
+    io.open(p, "w", encoding="utf-8").write(s)
+    print("  ok: открытие диалога и отправка ответа прокручивают переписку вниз")
+PY
+
+echo
 echo "=== 2. пересборка стенда (серверный код + админка) ==="
 STATIC_KEEP=$STAGE/.static-keep
 rm -rf "$STATIC_KEEP"

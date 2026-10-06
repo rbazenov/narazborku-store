@@ -9,7 +9,7 @@ import {
   Text,
   Textarea,
 } from "@medusajs/ui"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 
 /**
  * Раздел «Сообщения»: переписка покупателей с продавцом.
@@ -79,6 +79,7 @@ const MessagesPage = () => {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
   const timer = useRef<any>(null)
+  const chatBox = useRef<HTMLDivElement | null>(null)
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -112,6 +113,14 @@ const MessagesPage = () => {
   }, [load])
 
   const active = useMemo(() => convs.find((c) => c.id === activeId) || null, [convs, activeId])
+
+  /* Последнее сообщение всегда на виду: при открытии диалога и после отправки ответа
+     окно переписки само прокручивается вниз — искать новое сообщение вручную не нужно. */
+  useLayoutEffect(() => {
+    const box = chatBox.current
+    if (!box) return
+    box.scrollTop = box.scrollHeight
+  }, [activeId, active?.messages.length])
 
   const open = async (conv: Conv) => {
     setActiveId(conv.id)
@@ -292,7 +301,7 @@ const MessagesPage = () => {
                 </div>
               </div>
 
-              <div style={{ flex: 1, overflowY: "auto", padding: 18, display: "flex", flexDirection: "column", gap: 10, maxHeight: 480 }}>
+              <div ref={chatBox} style={{ flex: 1, overflowY: "auto", padding: 18, display: "flex", flexDirection: "column", gap: 10, maxHeight: 480 }}>
                 {active.messages.map((m) => {
                   const mine = m.sender === "seller"
                   return (
