@@ -45,8 +45,8 @@ export DEBIAN_FRONTEND=noninteractive
 say "1/10  Системные пакеты"
 apt-get update -qq
 apt-get install -y -qq curl git ca-certificates gnupg ufw \
-  postgresql postgresql-contrib redis-server nginx \
-  certbot python3-certbot-nginx openssl
+  postgresql redis-server nginx \
+  certbot python3-certbot-nginx openssl sudo
 
 say "2/10  Swap (страховка при сборке)"
 TOTAL_RAM_MB="$(awk '/MemTotal/{print int($2/1024)}' /proc/meminfo)"
@@ -55,7 +55,9 @@ TOTAL_RAM_MB="$(awk '/MemTotal/{print int($2/1024)}' /proc/meminfo)"
 if [ "$TOTAL_RAM_MB" -lt 4096 ]; then SWAP_SIZE=4G; else SWAP_SIZE=2G; fi
 echo "    памяти: ${TOTAL_RAM_MB} МБ → swap ${SWAP_SIZE}"
 if ! swapon --show | grep -q swap; then
-  fallocate -l "$SWAP_SIZE" /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile
+  rm -f /swapfile
+  fallocate -l "$SWAP_SIZE" /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=$(( ${SWAP_SIZE%G} * 1024 )) status=none
+  chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile
   grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
   # активнее выгружать в swap, чтобы не ловить OOM на пиках
   sysctl -q vm.swappiness=20
@@ -79,12 +81,26 @@ if [ "$TOTAL_RAM_MB" -lt 4096 ]; then
   systemctl restart redis-server
 fi
 
-say "3/10  Node.js 22"
-if ! command -v node >/dev/null || [ "$(node -v | cut -c2-3)" -lt 20 ]; then
-  curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
+say "3/10  Node.js"
+# Приоритет — версия из репозитория дистрибутива (Ubuntu 24.04+ содержит Node 20–22).
+# Если её нет или она старше 20 — подключаем официальный репозиторий NodeSource.
+NODE_MAJOR=0
+command -v node >/dev/null && NODE_MAJOR="$(node -v | sed 's/^v\([0-9]*\).*/\1/')"
+if [ "$NODE_MAJOR" -lt 20 ]; then
+  apt-get install -y -qq nodejs npm || true
+  command -v node >/dev/null && NODE_MAJOR="$(node -v | sed 's/^v\([0-9]*\).*/\1/')"
+fi
+if [ "$NODE_MAJOR" -lt 20 ]; then
+  echo "    ставлю Node 22 из NodeSource"
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null 2>&1 || true
   apt-get install -y -qq nodejs
 fi
 node -v; npm -v
+# npm 9 из некоторых дистрибутивов слишком старый для современных lock-файлов
+if [ "$(npm -v | cut -d. -f1)" -lt 10 ]; then
+  npm install -g npm@10 >/dev/null 2>&1 || true
+  echo "    npm обновлён до $(npm -v)"
+fi
 
 say "4/10  PostgreSQL и Redis"
 systemctl enable --now postgresql >/dev/null 2>&1
@@ -97,6 +113,8 @@ sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'" 
 say "5/10  Пользователь и код"
 id -u "$APP_USER" >/dev/null 2>&1 || useradd -m -s /bin/bash "$APP_USER"
 mkdir -p "$APP_DIR"
+# каталог должен принадлежать пользователю сервиса, иначе git clone и сборка не пройдут
+chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 if [ -d "$APP_DIR/app/.git" ]; then
   sudo -u "$APP_USER" git -C "$APP_DIR/app" pull --ff-only
 else
