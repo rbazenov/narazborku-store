@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Загрузить картинку для лендинга — НаРазборку</title>
+<style>
+  :root { --ink:#14161A; --muted:#6B7280; --line:#E5E7EB; --accent:#C5842A; --bg:#F7F7F8; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:16px/1.5 -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  .wrap { max-width:720px; margin:0 auto; padding:32px 20px 64px; }
+  h1 { font-size:24px; margin:0 0 6px; }
+  .sub { color:var(--muted); margin:0 0 24px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:22px; margin-bottom:18px; }
+  .drop { border:2px dashed #D1D5DB; border-radius:12px; padding:28px 18px; text-align:center; cursor:pointer;
+          transition:.15s; background:#FCFCFD; }
+  .drop:hover, .drop.over { border-color:var(--accent); background:#FFFBF4; }
+  .drop b { display:block; margin-bottom:6px; }
+  .drop span { color:var(--muted); font-size:14px; }
+  .row { display:flex; gap:10px; align-items:center; margin-top:18px; flex-wrap:wrap; }
+  button { font:inherit; font-weight:600; border:0; border-radius:10px; padding:11px 18px; cursor:pointer; }
+  .go { background:var(--ink); color:#fff; }
+  .go[disabled] { opacity:.45; cursor:default; }
+  .copy { background:#F3F4F6; color:var(--ink); }
+  .msg { margin-top:14px; font-size:14px; }
+  .msg.err { color:#B42318; }
+  .msg.ok { color:#067647; }
+  .preview { display:none; margin-top:18px; padding-top:18px; border-top:1px solid var(--line); }
+  .preview img { max-width:100%; max-height:200px; border-radius:10px; border:1px solid var(--line); background:#fff; }
+  .urlbox { width:100%; margin-top:12px; font:14px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+            padding:11px 12px; border:1px solid var(--line); border-radius:10px; background:#FAFAFB; color:var(--ink); }
+  ol { margin:8px 0 0 20px; padding:0; color:var(--muted); }
+  ol li { margin:4px 0; }
+  a { color:var(--accent); }
+  .file { font-size:14px; color:var(--muted); margin-top:10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Картинка для баннера</h1>
+  <p class="sub">Загрузите файл — страница выдаст готовую ссылку, её нужно вставить в строку баннера на лендинге.</p>
+
+  <div class="card">
+    <div class="drop" id="drop">
+      <b>Выберите файл или перетащите его сюда</b>
+      <span>PNG, JPG, WEBP или SVG, до 5 МБ. Лучше широкий формат — около 1200×600.</span>
+      <input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none">
+    </div>
+    <div class="file" id="fname"></div>
+    <div class="row">
+      <button class="go" id="go" disabled>Загрузить</button>
+      <span class="msg" id="msg"></span>
+    </div>
+
+    <div class="preview" id="preview">
+      <img id="img" alt="Предпросмотр">
+      <input class="urlbox" id="url" readonly>
+      <div class="row">
+        <button class="copy" id="copy">Скопировать ссылку</button>
+        <span class="msg" id="msg2"></span>
+      </div>
+      <ol>
+        <li>Нажмите «Скопировать ссылку».</li>
+        <li>В админке откройте товар «Баннеры и тексты лендинга» → «…» → Edit → поле Description.</li>
+        <li>В строке нужного баннера вставьте ссылку в шестое поле — между значком и цветами:
+            <code>Баннер: Заголовок | Текст | Кнопка | ссылка | 🚚 | <b>ссылка на картинку</b> | #цвет1, #цвет2</code></li>
+        <li>Сохраните и обновите страницу лендинга.</li>
+      </ol>
+    </div>
+  </div>
+
+  <p class="sub">Загруженные файлы лежат на сайте магазина, в папке <code>/static/</code>. Удалять их не обязательно — они не попадают в каталог.</p>
+</div>
+
+<script>
+(function () {
+  var drop = document.getElementById('drop');
+  var input = document.getElementById('file');
+  var go = document.getElementById('go');
+  var msg = document.getElementById('msg');
+  var msg2 = document.getElementById('msg2');
+  var fname = document.getElementById('fname');
+  var preview = document.getElementById('preview');
+  var img = document.getElementById('img');
+  var url = document.getElementById('url');
+  var copy = document.getElementById('copy');
+  var chosen = null;
+
+  function say(t, kind) { msg.textContent = t; msg.className = 'msg' + (kind ? ' ' + kind : ''); }
+
+  function pick(f) {
+    if (!f) return;
+    if (!/^image\//.test(f.type)) { say('Это не картинка — нужен PNG, JPG, WEBP или SVG.', 'err'); return; }
+    if (f.size > 5 * 1024 * 1024) { say('Файл больше 5 МБ — уменьшите картинку.', 'err'); return; }
+    chosen = f;
+    fname.textContent = f.name + ' · ' + Math.round(f.size / 1024) + ' КБ';
+    go.disabled = false;
+    say('');
+  }
+
+  drop.addEventListener('click', function () { input.click(); });
+  input.addEventListener('change', function () { pick(input.files[0]); });
+  ['dragenter', 'dragover'].forEach(function (e) {
+    drop.addEventListener(e, function (ev) { ev.preventDefault(); drop.classList.add('over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (e) {
+    drop.addEventListener(e, function (ev) { ev.preventDefault(); drop.classList.remove('over'); });
+  });
+  drop.addEventListener('drop', function (ev) {
+    if (ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]) pick(ev.dataTransfer.files[0]);
+  });
+
+  go.addEventListener('click', function () {
+    if (!chosen) return;
+    go.disabled = true;
+    say('Загружаю…');
+    var fd = new FormData();
+    fd.append('files', chosen);
+    fetch('/admin/uploads', { method: 'POST', body: fd, credentials: 'include' })
+      .then(function (r) {
+        return r.text().then(function (t) {
+          if (r.status === 401 || r.status === 403) throw new Error('Нужно войти в админку: откройте /app и авторизуйтесь, потом обновите эту страницу.');
+          if (!r.ok) throw new Error('Магазин ответил ' + r.status + (t ? ': ' + t.slice(0, 120) : ''));
+          return JSON.parse(t);
+        });
+      })
+      .then(function (data) {
+        var files = (data && data.files) || [];
+        if (!files.length || !files[0].url) throw new Error('Магазин не вернул ссылку на файл.');
+        var link = String(files[0].url).trim();
+        if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(link)) {
+          link = location.origin + '/' + link.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i, '');
+        }
+        url.value = link;
+        img.src = link;
+        preview.style.display = 'block';
+        say('Готово — ссылка ниже.', 'ok');
+        go.disabled = false;
+      })
+      .catch(function (e) { say(e.message, 'err'); go.disabled = false; });
+  });
+
+  copy.addEventListener('click', function () {
+    var done = function () { msg2.textContent = 'Скопировано'; msg2.className = 'msg ok';
+      setTimeout(function () { msg2.textContent = ''; }, 2500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url.value).then(done, function () { url.select(); document.execCommand('copy'); done(); });
+    } else { url.select(); document.execCommand('copy'); done(); }
+  });
+})();
+</script>
+</body>
+</html>
