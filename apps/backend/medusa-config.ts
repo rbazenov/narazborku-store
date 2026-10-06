@@ -25,9 +25,11 @@ module.exports = defineConfig({
      */
     databaseDriverOptions: {
       pool: {
-        min: Number(process.env.DB_POOL_MIN ?? 1),
-        max: Number(process.env.DB_POOL_MAX ?? 4),
-        idleTimeoutMillis: 30000,
+        // min 0 — соединения открываются по требованию и закрываются после простоя:
+        // на сервере с 2 ГБ памяти это экономит сотни мегабайт
+        min: Number(process.env.DB_POOL_MIN ?? 0),
+        max: Number(process.env.DB_POOL_MAX ?? 3),
+        idleTimeoutMillis: Number(process.env.DB_POOL_IDLE_MS ?? 10000),
       },
     },
     http: {
