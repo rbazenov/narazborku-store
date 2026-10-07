@@ -67,5 +67,10 @@ module.exports = defineConfig({
       resolve: './src/modules/messages',
       options: {},
     },
+    {
+      // Товары партнёров-авторазборок по фид-ссылкам (сборщик + справочник, см. src/modules/partners)
+      resolve: './src/modules/partners',
+      options: {},
+    },
   ],
 })

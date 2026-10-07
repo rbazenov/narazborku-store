@@ -22,7 +22,8 @@
     "test:unit": "TEST_TYPE=unit NODE_OPTIONS=--experimental-vm-modules jest --silent --runInBand --forceExit",
     "predeploy": "medusa db:migrate",
     "seed:autoparts": "medusa exec ./src/scripts/seed-narazborku-autoparts.ts",
-    "reset-link": "medusa exec ./src/scripts/make-reset-link.ts"
+    "reset-link": "medusa exec ./src/scripts/make-reset-link.ts",
+    "partners:fetch": "medusa exec ./src/scripts/partners-fetch.ts"
   },
   "dependencies": {
     "@medusajs/admin-sdk": "2.21.2",
