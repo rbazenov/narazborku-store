@@ -36,7 +36,15 @@ import io, sys
 p = sys.argv[1]
 s = io.open(p, encoding="utf-8").read()
 
+CSS_OLD = "position:absolute;top:170%;left:-10px;z-index:80;width:300px;"
+CSS_NEW = "position:absolute;top:150%;left:14px;z-index:80;width:300px;"
+
 if "naz-sku-hint" in s:
+    if CSS_OLD in s:                     # правка уже стоит — обновляем положение подсказки
+        s = s.replace(CSS_OLD, CSS_NEW, 1)
+        io.open(p, "w", encoding="utf-8").write(s)
+        print("  обновлено: подсказка сдвинута вправо, чтобы не закрывать поле ввода")
+        sys.exit(0)
     print("  уже применено — файл не изменён")
     sys.exit(0)
 
@@ -48,7 +56,7 @@ if s.count(OLD_LABEL) != 1 or s.count(OLD_INPUT) != 1:
     sys.exit(2)
 
 HELPER = '''/* правка «НаРазборку»: значок «?» с подсказкой про артикул в форме создания складской позиции */
-const nazSkuHintCss = ".naz-sku-hint{position:relative;display:inline-flex;align-items:center;justify-content:center;margin-left:6px;width:16px;height:16px;vertical-align:middle;cursor:help;outline:none}.naz-sku-hint-badge{width:16px;height:16px;border-radius:50%;background:#A1A1AA;color:#fff;font-size:11px;font-weight:700;line-height:1;display:inline-flex;align-items:center;justify-content:center}.naz-sku-hint-pop{position:absolute;top:170%;left:-10px;z-index:80;width:300px;padding:10px 12px;border-radius:8px;background:#18181B;color:#fff;font-size:12px;font-weight:400;line-height:1.45;text-transform:none;letter-spacing:0;box-shadow:0 10px 30px rgba(0,0,0,.28);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s ease}.naz-sku-hint:hover .naz-sku-hint-pop,.naz-sku-hint:focus .naz-sku-hint-pop{opacity:1;visibility:visible}";
+const nazSkuHintCss = ".naz-sku-hint{position:relative;display:inline-flex;align-items:center;justify-content:center;margin-left:6px;width:16px;height:16px;vertical-align:middle;cursor:help;outline:none}.naz-sku-hint-badge{width:16px;height:16px;border-radius:50%;background:#A1A1AA;color:#fff;font-size:11px;font-weight:700;line-height:1;display:inline-flex;align-items:center;justify-content:center}.naz-sku-hint-pop{position:absolute;top:150%;left:14px;z-index:80;width:300px;padding:10px 12px;border-radius:8px;background:#18181B;color:#fff;font-size:12px;font-weight:400;line-height:1.45;text-transform:none;letter-spacing:0;box-shadow:0 10px 30px rgba(0,0,0,.28);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s ease}.naz-sku-hint:hover .naz-sku-hint-pop,.naz-sku-hint:focus .naz-sku-hint-pop{opacity:1;visibility:visible}";
 const nazSkuHint = () => /* @__PURE__ */ jsxs("span", { className: "naz-sku-hint", tabIndex: 0, "aria-label": "Что писать в поле «Артикул»", children: [
   /* @__PURE__ */ jsx2("style", { children: nazSkuHintCss }),
   /* @__PURE__ */ jsx2("span", { className: "naz-sku-hint-badge", "aria-hidden": true, children: "?" }),
