@@ -32,6 +32,15 @@ find "$APP/src/modules/partners" -type f | sed "s#$APP/##" | sort
 ls -1 "$APP/src/jobs" | sed 's/^/  job: /'
 
 echo
+echo "=== 1b. чистка устаревших файлов ==="
+if [ -f "$APP/src/api/store/partners/route.ts" ]; then
+  rm -f "$APP/src/api/store/partners/route.ts"
+  echo "  убран витринный список партнёров: имя и город разборки покупателю не показываем"
+else
+  echo "  устаревших файлов нет"
+fi
+
+echo
 echo "=== 2. регистрация модуля в medusa-config.ts ==="
 python3 - "$APP/medusa-config.ts" <<'PY'
 import io, sys

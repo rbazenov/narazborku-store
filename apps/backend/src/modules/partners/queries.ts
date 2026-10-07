@@ -4,6 +4,10 @@
  * Витрина читает только нашу копию каталога (таблицу partner_product) — к чужим
  * серверам в момент открытия страницы никто не обращается. Скрытыми считаются
  * товары, которых нет в фиде два прогона подряд, и товары выключенного партнёра.
+ *
+ * ВАЖНО: поля партнёра (partner_id, partner_name, partner_city) — только для
+ * админки. Витринный маршрут (/store/partners/products) берёт из этих выборок
+ * белый список полей товара и данные партнёра покупателю не отдаёт.
  */
 
 export type PartnerCounts = {
@@ -20,7 +24,10 @@ export type ProductQuery = {
   limit?: number
   offset?: number
   sort?: "price_asc" | "price_desc" | "new" | "title"
+  /** витрина берёт только активные товары; админка — все, чтобы видеть и скрытые */
   only_active?: boolean
+  /** админке нужны и товары выключенного партнёра */
+  include_disabled?: boolean
 }
 
 const clip = (v: unknown, max = 200) => String(v == null ? "" : v).slice(0, max).trim()
@@ -65,8 +72,8 @@ export async function listPartnerProducts(knex: any, query: ProductQuery = {}) {
       .join("partner as p", "p.id", "pp.partner_id")
       .whereNull("pp.deleted_at")
       .whereNull("p.deleted_at")
-      .where({ "p.enabled": true })
       .modify((qb: any) => {
+        if (!query.include_disabled) qb.where({ "p.enabled": true })
         if (onlyActive) qb.where({ "pp.active": true })
         if (query.partner_id) qb.where({ "pp.partner_id": query.partner_id })
         if (search) {
