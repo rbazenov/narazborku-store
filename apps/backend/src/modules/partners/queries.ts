@@ -21,6 +21,10 @@ export type PartnerCounts = {
 export type ProductQuery = {
   partner_id?: string
   q?: string
+  /** категория витрины (Двигатель, Кузовные детали, …) */
+  cat?: string
+  price_min?: number
+  price_max?: number
   limit?: number
   offset?: number
   sort?: "price_asc" | "price_desc" | "new" | "title"
@@ -76,6 +80,10 @@ export async function listPartnerProducts(knex: any, query: ProductQuery = {}) {
         if (!query.include_disabled) qb.where({ "p.enabled": true })
         if (onlyActive) qb.where({ "pp.active": true })
         if (query.partner_id) qb.where({ "pp.partner_id": query.partner_id })
+        if (query.cat) qb.where({ "pp.cat": clip(query.cat, 60) })
+        if (Number.isFinite(query.price_min)) qb.where("pp.price", ">=", Number(query.price_min))
+        if (Number.isFinite(query.price_max)) qb.where("pp.price", "<=", Number(query.price_max))
+        if (Number.isFinite(query.price_min) || Number.isFinite(query.price_max)) qb.whereNotNull("pp.price")
         if (search) {
           const like = `%${search}%`
           qb.andWhere((w: any) =>
@@ -106,6 +114,7 @@ export async function listPartnerProducts(knex: any, query: ProductQuery = {}) {
       "pp.id",
       "pp.partner_id",
       "pp.article",
+      "pp.cat",
       "pp.title",
       "pp.make",
       "pp.model",

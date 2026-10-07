@@ -27,7 +27,7 @@ TGZ=${1:-/root/partners-stage.tgz}
 echo "=== 1. код модуля partners ==="
 tar xzf "$TGZ" -C "$APP"
 chown -R medusa:medusa "$APP/src/modules/partners" "$APP/src/jobs" "$APP/src/scripts" "$APP/src/admin/routes/partners" 2>/dev/null || true
-chown -R medusa:medusa "$APP/src/api/admin/partners" "$APP/src/api/store/partners" 2>/dev/null || true
+chown -R medusa:medusa "$APP/src/api/admin/partners" "$APP/src/api/store/partners" "$APP/src/api/partners" 2>/dev/null || true
 find "$APP/src/modules/partners" -type f | sed "s#$APP/##" | sort
 ls -1 "$APP/src/jobs" | sed 's/^/  job: /'
 

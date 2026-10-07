@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto"
 import { decodeFeed, parseFeed, type FeedProduct } from "./feed"
+import { categoryOf } from "./categories"
 
 /**
  * Забор данных партнёра по фид-ссылке.
@@ -33,6 +34,7 @@ export type PartnerRow = {
   feed_url: string
   encoding: string
   separator: string
+  photo_hosts?: string
 }
 
 export type FetchResult = {
@@ -69,14 +71,15 @@ export type CheckResult = {
   with_photos?: number
   photos_total?: number
   in_stock?: number
+  categories?: Record<string, number>
   sample?: Array<Record<string, unknown>>
   duration_ms: number
 }
 
 const pprodId = () => "pprod_" + randomUUID().replace(/-/g, "")
 
-/** Колонки строки товара: 15 обычных + 2 jsonb (фото, характеристики) + 7 обычных. */
-const ROW_PLACEHOLDERS = [...Array(15).fill("?"), "?::jsonb", "?::jsonb", ...Array(7).fill("?")]
+/** Колонки строки товара: 16 обычных + 2 jsonb (фото, характеристики) + 7 обычных. */
+const ROW_PLACEHOLDERS = [...Array(16).fill("?"), "?::jsonb", "?::jsonb", ...Array(7).fill("?")]
 const COLUMNS_IN_ROW = ROW_PLACEHOLDERS.length
 const TUPLE = "(" + ROW_PLACEHOLDERS.join(",") + ")"
 
@@ -133,6 +136,11 @@ export async function checkPartnerFeed(
     }
 
     const withPrice = feed.products.filter((p) => p.price !== null)
+    const categories: Record<string, number> = {}
+    for (const p of feed.products) {
+      const c = categoryOf(p.title, p.comment)
+      categories[c] = (categories[c] || 0) + 1
+    }
     return {
       ok: true,
       status,
@@ -148,6 +156,7 @@ export async function checkPartnerFeed(
       with_photos: feed.products.filter((p) => p.photos.length > 0).length,
       photos_total: feed.products.reduce((s, p) => s + p.photos.length, 0),
       in_stock: feed.products.filter((p) => p.in_stock).length,
+      categories,
       sample: feed.products.slice(0, 3).map((p) => ({
         article: p.article,
         title: p.title,
@@ -176,8 +185,8 @@ async function upsertProducts(knex: any, partnerId: string, products: FeedProduc
     for (const p of chunk) {
       tuples.push(TUPLE)
       values.push(
-        pprodId(), partnerId, p.article, p.title, p.make, p.model, p.year, p.body, p.engine,
-        p.color, p.part_number, p.condition, p.comment, p.manufacturer, p.price,
+        pprodId(), partnerId, p.article, categoryOf(p.title, p.comment), p.title, p.make, p.model,
+        p.year, p.body, p.engine, p.color, p.part_number, p.condition, p.comment, p.manufacturer, p.price,
         JSON.stringify(p.photos), JSON.stringify(p.attrs),
         p.status_text, p.in_stock, true, 0, p.hash, seenAt, seenAt
       )
@@ -190,12 +199,12 @@ async function upsertProducts(knex: any, partnerId: string, products: FeedProduc
 
     await knex.raw(
       `insert into "partner_product"
-        ("id","partner_id","article","title","make","model","year","body","engine","color","part_number",
+        ("id","partner_id","article","cat","title","make","model","year","body","engine","color","part_number",
          "condition","comment","manufacturer","price","photos","attrs","status_text","in_stock","active",
          "missing_runs","content_hash","first_seen_at","last_seen_at")
        values ${tuples.join(",")}
        on conflict ("partner_id","article") do update set
-         "title" = excluded."title", "make" = excluded."make", "model" = excluded."model",
+         "cat" = excluded."cat", "title" = excluded."title", "make" = excluded."make", "model" = excluded."model",
          "year" = excluded."year", "body" = excluded."body", "engine" = excluded."engine",
          "color" = excluded."color", "part_number" = excluded."part_number",
          "condition" = excluded."condition", "comment" = excluded."comment",
@@ -343,7 +352,7 @@ export async function runPartnersFetch(
       if (opts.partnerId) qb.where({ id: opts.partnerId })
       else qb.where({ enabled: true })
     })
-    .select("id", "name", "city", "feed_url", "encoding", "separator")
+    .select("id", "name", "city", "feed_url", "encoding", "separator", "photo_hosts")
 
   if (opts.partnerId && !rows.length) throw new Error("партнёр не найден")
   log(`партнёров к обновлению: ${rows.length}`)

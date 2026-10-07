@@ -14,6 +14,8 @@ export const PartnerProduct = model.define("partner_product", {
   id: model.id({ prefix: "pprod" }).primaryKey(),
   partner_id: model.text(),
   article: model.text(),
+  /** категория витрины: определяется по названию детали при импорте фида */
+  cat: model.text().default(""),
   title: model.text().default(""),
   make: model.text().default(""),
   model: model.text().default(""),

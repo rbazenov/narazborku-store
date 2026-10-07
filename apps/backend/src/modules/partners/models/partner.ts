@@ -19,6 +19,8 @@ export const Partner = model.define("partner", {
   encoding: model.text().default(""),
   /** разделитель колонок: пусто — определить самому по заголовку */
   separator: model.text().default(""),
+  /** дополнительные домены фотографий через запятую (если фото лежат не на домене партнёра) */
+  photo_hosts: model.text().default(""),
   note: model.text().default(""),
   enabled: model.boolean().default(true),
 
