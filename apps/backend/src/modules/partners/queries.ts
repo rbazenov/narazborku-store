@@ -85,16 +85,28 @@ export async function listPartnerProducts(knex: any, query: ProductQuery = {}) {
         if (Number.isFinite(query.price_max)) qb.where("pp.price", "<=", Number(query.price_max))
         if (Number.isFinite(query.price_min) || Number.isFinite(query.price_max)) qb.whereNotNull("pp.price")
         if (search) {
-          const like = `%${search}%`
-          qb.andWhere((w: any) =>
-            w
-              .where("pp.title", "ilike", like)
-              .orWhere("pp.make", "ilike", like)
-              .orWhere("pp.model", "ilike", like)
-              .orWhere("pp.part_number", "ilike", like)
-              .orWhere("pp.article", "ilike", like)
-              .orWhere("pp.manufacturer", "ilike", like)
-          )
+          /* Поиск по словам: каждое слово запроса должно найтись хотя бы в одном
+             из полей товара. Введённое целиком название («Капот Оригинал
+             (Volkswagen Transporter T5)») находит товар так же, как «капот»:
+             слова ищутся по отдельности, регистр и знаки не важны. */
+          const words = search
+            .toLowerCase()
+            .split(/[^\p{L}\p{N}]+/u)
+            .filter((w) => w.length > 1)
+            .slice(0, 6)
+          for (const word of words.length ? words : [search]) {
+            const like = `%${word}%`
+            qb.andWhere((w: any) =>
+              w
+                .where("pp.title", "ilike", like)
+                .orWhere("pp.make", "ilike", like)
+                .orWhere("pp.model", "ilike", like)
+                .orWhere("pp.part_number", "ilike", like)
+                .orWhere("pp.article", "ilike", like)
+                .orWhere("pp.manufacturer", "ilike", like)
+                .orWhereRaw("pp.year::text ilike ?", [like])
+            )
+          }
         }
       })
 
