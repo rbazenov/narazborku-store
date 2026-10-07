@@ -107,6 +107,10 @@ else
 fi
 
 echo
+echo "=== 1d. поле «Артикул (SKU)» со значком-подсказкой в форме создания складской позиции ==="
+bash /root/patch-admin-sku-hint.sh "$STAGE/app" || echo "  ! правку формы применить не удалось — админка соберётся без неё"
+
+echo
 echo "=== 2. пересборка стенда (серверный код + админка) ==="
 STATIC_KEEP=$STAGE/.static-keep
 rm -rf "$STATIC_KEEP"
